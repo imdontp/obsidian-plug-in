@@ -31,6 +31,22 @@ export class ClaudeCodexTerminalSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName("Node.js path")
+			.setDesc(
+				"Path to a node executable used to host terminal sessions. Leave empty to auto-detect from PATH."
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("auto-detect")
+					.setValue(this.plugin.settings.nodePath)
+					.onChange(async (value) => {
+						this.plugin.settings.nodePath = value;
+						await this.plugin.saveSettings();
+						this.plugin.refreshNodePath();
+					})
+			);
+
+		new Setting(containerEl)
 			.setName("Claude Code binary")
 			.setDesc("Command or path used to launch Claude Code.")
 			.addText((text) =>

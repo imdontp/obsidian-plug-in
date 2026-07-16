@@ -6,6 +6,7 @@ export interface AgentProfile {
 export interface ClaudeCodexTerminalSettings {
 	projectRoot: string;
 	shell: string;
+	nodePath: string;
 	agents: {
 		claude: AgentProfile;
 		codex: AgentProfile;
@@ -15,6 +16,7 @@ export interface ClaudeCodexTerminalSettings {
 export const DEFAULT_SETTINGS: ClaudeCodexTerminalSettings = {
 	projectRoot: "",
 	shell: "",
+	nodePath: "",
 	agents: {
 		claude: { binary: "claude", defaultArgs: [] },
 		codex: { binary: "codex", defaultArgs: [] },
