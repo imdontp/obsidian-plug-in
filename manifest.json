@@ -1,0 +1,10 @@
+{
+	"id": "claude-codex-terminal",
+	"name": "Claude & Codex Terminal",
+	"version": "0.1.0",
+	"minAppVersion": "1.4.0",
+	"description": "Native terminal inside Obsidian to run Claude Code and Codex CLI agents against a separate project root.",
+	"author": "imdontp",
+	"authorUrl": "https://github.com/imdontp",
+	"isDesktopOnly": true
+}
