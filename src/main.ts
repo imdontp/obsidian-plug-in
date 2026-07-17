@@ -18,6 +18,12 @@ import {
 import { ExternalFileService } from "./editor/ExternalFileService";
 import { DiffReviewView, DiffReviewViewState, VIEW_TYPE_DIFF_REVIEW } from "./diff/DiffReviewView";
 import { GitDiffService } from "./diff/GitDiffService";
+import {
+	ProjectFileBrowserView,
+	ProjectFileBrowserViewState,
+	VIEW_TYPE_PROJECT_FILE_BROWSER,
+} from "./browser/ProjectFileBrowserView";
+import { ProjectFileService } from "./browser/ProjectFileService";
 import { resolveProjectRoot, resolvePluginDir } from "./utils/paths";
 import { resolveNodePath } from "./utils/node";
 
@@ -28,6 +34,7 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 	ptyManager!: PtyManager;
 	readonly gitDiffService = new GitDiffService();
 	readonly externalFileService = new ExternalFileService();
+	readonly projectFileService = new ProjectFileService();
 	private readonly terminalSessions = new Map<string, TerminalView>();
 	private contextTargetId: string | null = null;
 	private contextStatusEl: HTMLElement | null = null;
@@ -43,6 +50,10 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 
 		this.registerView(VIEW_TYPE_TERMINAL, (leaf: WorkspaceLeaf) => new TerminalView(leaf, this));
 		this.registerView(VIEW_TYPE_DIFF_REVIEW, (leaf: WorkspaceLeaf) => new DiffReviewView(leaf, this));
+		this.registerView(
+			VIEW_TYPE_PROJECT_FILE_BROWSER,
+			(leaf: WorkspaceLeaf) => new ProjectFileBrowserView(leaf, this)
+		);
 		this.registerView(
 			VIEW_TYPE_EXTERNAL_FILE_EDITOR,
 			(leaf: WorkspaceLeaf) => new ExternalFileEditorView(leaf, this)
@@ -109,6 +120,14 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 			name: "Open project diff review",
 			callback: () => {
 				void this.openProjectDiffReview();
+			},
+		});
+
+		this.addCommand({
+			id: "open-project-file-browser",
+			name: "Open project file browser",
+			callback: () => {
+				void this.openProjectFileBrowser();
 			},
 		});
 
@@ -206,6 +225,22 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 			type: VIEW_TYPE_DIFF_REVIEW,
 			active: true,
 			state: { projectRoot } satisfies DiffReviewViewState,
+		});
+		this.app.workspace.revealLeaf(leaf);
+	}
+
+	private async openProjectFileBrowser(): Promise<void> {
+		const projectRoot = resolveProjectRoot(this.app, this.settings.projectRoot);
+		if (!projectRoot) {
+			new Notice("Set a project root (or open a vault on disk) before browsing project files.");
+			return;
+		}
+
+		const leaf = this.app.workspace.getLeaf("tab");
+		await leaf.setViewState({
+			type: VIEW_TYPE_PROJECT_FILE_BROWSER,
+			active: true,
+			state: { projectRoot } satisfies ProjectFileBrowserViewState,
 		});
 		this.app.workspace.revealLeaf(leaf);
 	}

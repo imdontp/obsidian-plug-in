@@ -8,7 +8,8 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"test:pty-host": "node tests/pty-host-windows.test.js",
 		"test:external-file": "node tests/external-file-service.test.js",
-		"test:git-diff": "node tests/git-diff-service.test.js"
+		"test:git-diff": "node tests/git-diff-service.test.js",
+		"test:project-files": "node tests/project-file-service.test.js"
 	},
 	"license": "MIT",
 	"devDependencies": {

@@ -14,7 +14,7 @@ const DEFAULT_STATE: ExternalFileEditorViewState = {
 	relativePath: "",
 };
 
-/** A deliberately small text editor for a file selected from Project Diff Review. */
+/** A deliberately small text editor for a project file selected by the user. */
 export class ExternalFileEditorView extends ItemView {
 	private readonly plugin: ClaudeCodexTerminalPlugin;
 	private state: ExternalFileEditorViewState = DEFAULT_STATE;
@@ -103,7 +103,7 @@ export class ExternalFileEditorView extends ItemView {
 		}
 		if (!this.hasFileSelection()) {
 			this.snapshot = null;
-			this.error = "Choose a changed file from Project Diff Review first.";
+			this.error = "Choose a project file from Project File Browser or Project Diff Review first.";
 			this.render();
 			return;
 		}
@@ -235,7 +235,7 @@ export class ExternalFileEditorView extends ItemView {
 			if (!this.error) {
 				this.contentEl.createDiv({
 					cls: "claude-codex-external-file-editor-message",
-					text: "Choose a changed file from Project Diff Review first.",
+					text: "Choose a project file from Project File Browser or Project Diff Review first.",
 				});
 			}
 			return;

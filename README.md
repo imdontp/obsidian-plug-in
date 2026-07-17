@@ -7,8 +7,7 @@ Desktop-only (requires Node.js/Electron APIs not available on Obsidian mobile).
 
 ## Status
 
-Phase 3 manual validation is in progress. The native terminal and agent launch commands are implemented;
-Phase 4 handling for missing commands, theme synchronization, and keyboard workflow is also implemented.
+Phases 0–6 are implemented. Runtime validation in Obsidian is still recommended for each local setup.
 
 ## Roadmap
 
@@ -21,6 +20,7 @@ Phase 4 handling for missing commands, theme synchronization, and keyboard workf
 | 4 | Polish: missing-binary error handling, theme sync, keybindings |
 | 5A | Read-only project Git diff review |
 | 5B | Diff-driven external-file preview and lightweight editor |
+| 6 | Project file browser for safe text-file access, including untracked files |
 
 ## Development
 
@@ -76,8 +76,8 @@ project root. It reads `git diff HEAD` and shows tracked staged/unstaged changes
 
 ## External file editor (Phase 5B)
 
-Select a non-deleted file in **Project Diff Review** to open it in the **External File Editor**.
-It is intentionally limited to the changed, tracked files reported by Git for the configured project root.
+Select a non-deleted file in **Project Diff Review**, or a file in **Project File Browser**, to open it in
+the **External File Editor**.
 
 - The editor reads only UTF-8 text files up to 1 MB, inside the configured project root.
 - It refuses paths outside that root, symbolic links, folders, and binary files.
@@ -85,3 +85,14 @@ It is intentionally limited to the changed, tracked files reported by Git for th
 - Before saving, it compares the file on disk with the version that was opened. If another app changed it,
   the save is stopped so external work is not overwritten.
 - The plugin does not send file contents over the network.
+
+## Project file browser (Phase 6)
+
+Use **Open project file browser** from the Command palette to browse regular files under the configured
+project root. If Project root is blank, it uses the local vault currently open in Obsidian.
+
+- The browser includes files that Git does not show, such as untracked files and non-Git project files.
+- It lists paths and sizes without reading file contents. File contents are read only after you choose a file.
+- `.git`, `.obsidian`, `node_modules`, and symbolic links are excluded; the list is capped at 5,000 files.
+- Filter by path, then open a file in the same guarded editor described above. Only UTF-8 text files up to
+  1 MB can be opened and saved.
