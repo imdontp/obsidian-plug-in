@@ -6,6 +6,7 @@ const MAX_STATUS_BYTES = 128_000;
 export interface ProjectDiff {
 	text: string;
 	files: ProjectDiffFile[];
+	statusFiles: ProjectGitStatusFile[];
 	filesChanged: number;
 	additions: number;
 	deletions: number;
@@ -15,6 +16,13 @@ export interface ProjectDiff {
 export interface ProjectDiffFile {
 	path: string;
 	status: string;
+}
+
+export interface ProjectGitStatusFile {
+	path: string;
+	indexStatus: string;
+	workTreeStatus: string;
+	originalPath?: string;
 }
 
 interface GitCommandError extends Error {
@@ -39,18 +47,20 @@ export class GitDiffService {
 
 		const [text, status, changedFiles] = await Promise.all([
 			this.runGit(root, ["diff", "--no-ext-diff", "--no-textconv", "--unified=3", "HEAD", "--"], MAX_DIFF_BYTES),
-			this.runGit(root, ["status", "--porcelain=v1", "--untracked-files=normal"], MAX_STATUS_BYTES),
+			this.runGit(root, ["status", "--porcelain=v1", "-z", "--untracked-files=normal"], MAX_STATUS_BYTES),
 			this.runGit(root, ["diff", "--no-ext-diff", "--no-textconv", "--name-status", "-z", "HEAD", "--"], MAX_STATUS_BYTES),
 		]);
 		const summary = summarizeUnifiedDiff(text);
 		const files = parseChangedFiles(changedFiles);
+		const statusFiles = parseGitStatus(status);
 
 		return {
 			text,
 			files,
+			statusFiles,
 			...summary,
 			filesChanged: files.length,
-			untrackedFiles: status.split(/\r?\n/).filter((line) => line.startsWith("?? ")).length,
+			untrackedFiles: statusFiles.filter(isUntrackedFile).length,
 		};
 	}
 
@@ -139,4 +149,34 @@ function parseChangedFiles(output: string): ProjectDiffFile[] {
 	}
 
 	return files;
+}
+
+function parseGitStatus(output: string): ProjectGitStatusFile[] {
+	const fields = output.split("\0");
+	const files: ProjectGitStatusFile[] = [];
+
+	for (let index = 0; index < fields.length;) {
+		const record = fields[index++];
+		if (!record || record.length < 4) {
+			continue;
+		}
+
+		const indexStatus = record.charAt(0);
+		const workTreeStatus = record.charAt(1);
+		const path = record.slice(3);
+		if (!path) {
+			continue;
+		}
+
+		const originalPath = /[RC]/.test(indexStatus) || /[RC]/.test(workTreeStatus)
+			? fields[index++] || undefined
+			: undefined;
+		files.push({ path, indexStatus, workTreeStatus, originalPath });
+	}
+
+	return files;
+}
+
+function isUntrackedFile(file: ProjectGitStatusFile): boolean {
+	return file.indexStatus === "?" && file.workTreeStatus === "?";
 }

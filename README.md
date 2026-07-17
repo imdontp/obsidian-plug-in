@@ -7,7 +7,7 @@ Desktop-only (requires Node.js/Electron APIs not available on Obsidian mobile).
 
 ## Status
 
-Phases 0–6 are implemented. Runtime validation in Obsidian is still recommended for each local setup.
+Phases 0–7 are implemented. Runtime validation in Obsidian is still recommended for each local setup.
 
 ## Roadmap
 
@@ -21,6 +21,7 @@ Phases 0–6 are implemented. Runtime validation in Obsidian is still recommende
 | 5A | Read-only project Git diff review |
 | 5B | Diff-driven external-file preview and lightweight editor |
 | 6 | Project file browser for safe text-file access, including untracked files |
+| 7 | Auto-refreshing Git status with patch/status distinction |
 
 ## Development
 
@@ -70,9 +71,14 @@ Use **Open project diff review** from the Command palette to inspect local Git c
 project root. It reads `git diff HEAD` and shows tracked staged/unstaged changes in a separate tab.
 
 - The review is read-only: it does not save, stage, apply, reset, or otherwise modify project files.
-- Untracked files are counted but are not displayed in this first version.
+- Untracked files are shown as status entries, but do not have a Git patch until they are tracked.
 - Git must be available in the environment that launches Obsidian.
 - Diff text stays local; the plugin does not send it over the network.
+
+While the tab is open, the review refreshes every three seconds. It separates files with a content patch from
+other Git status entries, including untracked files and entries for which Git returns no patch. This makes a
+Git status entry visible without claiming that it has a textual diff. Status entries can be opened in the
+guarded external editor when they still refer to a regular file.
 
 ## External file editor (Phase 5B)
 

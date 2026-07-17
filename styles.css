@@ -292,6 +292,19 @@
 	color: var(--text-warning, var(--text-muted));
 }
 
+.claude-codex-diff-review-status-without-patch {
+	color: var(--text-warning, var(--text-muted));
+}
+
+.claude-codex-diff-review-auto-refresh,
+.claude-codex-diff-review-status-note {
+	color: var(--text-muted);
+}
+
+.claude-codex-diff-review-status-note {
+	font-size: var(--font-ui-smaller);
+}
+
 .claude-codex-diff-review-files {
 	display: flex;
 	flex-direction: column;
