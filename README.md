@@ -19,7 +19,8 @@ Phase 4 handling for missing commands, theme synchronization, and keyboard workf
 | 2 | Agent launch commands: configurable `projectRoot` (separate from vault path), launch `claude`/`codex` in a new tab, multi-tab sessions |
 | 3 | Context actions: send active file/selection to the running agent, status bar session indicator |
 | 4 | Polish: missing-binary error handling, theme sync, keybindings |
-| 5 (future) | Diff review / lightweight code editor layer |
+| 5A | Read-only project Git diff review |
+| 5B (future) | External-file preview / lightweight code editor layer |
 
 ## Development
 
@@ -62,3 +63,13 @@ default hotkeys, so it cannot conflict with your existing shortcuts. In **Settin
 - **Focus context target terminal**
 - **Launch Claude Code**
 - **Paste active file path into context target**
+
+## Project diff review (Phase 5A)
+
+Use **Open project diff review** from the Command palette to inspect local Git changes for the configured
+project root. It reads `git diff HEAD` and shows tracked staged/unstaged changes in a separate tab.
+
+- The review is read-only: it does not save, stage, apply, reset, or otherwise modify project files.
+- Untracked files are counted but are not displayed in this first version.
+- Git must be available in the environment that launches Obsidian.
+- Diff text stays local; the plugin does not send it over the network.

@@ -238,3 +238,103 @@
 	min-height: 0;
 	padding: 4px;
 }
+
+/* Project diff review */
+.claude-codex-diff-review {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	padding: var(--size-4-4);
+	gap: var(--size-4-3);
+}
+
+.claude-codex-diff-review-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-3);
+}
+
+.claude-codex-diff-review-heading {
+	min-width: 0;
+}
+
+.claude-codex-diff-review-heading h2 {
+	margin: 0;
+}
+
+.claude-codex-diff-review-heading code {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text-muted);
+}
+
+.claude-codex-diff-review-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+	color: var(--text-muted);
+}
+
+.claude-codex-diff-review-addition {
+	color: var(--text-success, var(--text-normal));
+}
+
+.claude-codex-diff-review-deletion,
+.claude-codex-diff-review-error {
+	color: var(--text-error, var(--text-normal));
+}
+
+.claude-codex-diff-review-untracked {
+	color: var(--text-warning, var(--text-muted));
+}
+
+.claude-codex-diff-review-message,
+.claude-codex-diff-review-error {
+	padding: var(--size-4-3);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+}
+
+.claude-codex-diff-review-lines {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	font-family: var(--font-monospace);
+	font-size: var(--font-text-size);
+	line-height: var(--line-height-normal);
+}
+
+.claude-codex-diff-review-line {
+	min-width: max-content;
+	padding: 0 var(--size-4-2);
+	white-space: pre;
+}
+
+.claude-codex-diff-review-file {
+	background: var(--background-secondary);
+	color: var(--text-accent);
+	font-weight: var(--font-semibold);
+}
+
+.claude-codex-diff-review-hunk {
+	background: var(--background-secondary-alt);
+	color: var(--text-muted);
+}
+
+.claude-codex-diff-review-added {
+	background: rgba(65, 160, 95, 0.14);
+}
+
+.claude-codex-diff-review-removed {
+	background: rgba(200, 80, 80, 0.14);
+}
+
+.claude-codex-diff-review-meta {
+	color: var(--text-muted);
+}

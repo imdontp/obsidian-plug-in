@@ -10,6 +10,8 @@ import {
 	TerminalViewState,
 	VIEW_TYPE_TERMINAL,
 } from "./terminal/TerminalView";
+import { DiffReviewView, DiffReviewViewState, VIEW_TYPE_DIFF_REVIEW } from "./diff/DiffReviewView";
+import { GitDiffService } from "./diff/GitDiffService";
 import { resolveProjectRoot, resolvePluginDir } from "./utils/paths";
 import { resolveNodePath } from "./utils/node";
 
@@ -18,6 +20,7 @@ const MAX_SELECTION_CONTEXT_LENGTH = 20_000;
 export default class ClaudeCodexTerminalPlugin extends Plugin {
 	settings!: ClaudeCodexTerminalSettings;
 	ptyManager!: PtyManager;
+	readonly gitDiffService = new GitDiffService();
 	private readonly terminalSessions = new Map<string, TerminalView>();
 	private contextTargetId: string | null = null;
 	private contextStatusEl: HTMLElement | null = null;
@@ -32,6 +35,7 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 		this.ptyManager = new PtyManager(pluginDir, resolveNodePath(this.settings.nodePath));
 
 		this.registerView(VIEW_TYPE_TERMINAL, (leaf: WorkspaceLeaf) => new TerminalView(leaf, this));
+		this.registerView(VIEW_TYPE_DIFF_REVIEW, (leaf: WorkspaceLeaf) => new DiffReviewView(leaf, this));
 		this.registerEvent(this.app.workspace.on("css-change", () => this.refreshTerminalThemes()));
 		this.contextStatusEl = this.addStatusBarItem();
 		this.contextStatusEl.setAttribute("role", "button");
@@ -87,6 +91,14 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 			id: "focus-context-target",
 			name: "Focus context target terminal",
 			callback: () => this.revealContextTarget(true),
+		});
+
+		this.addCommand({
+			id: "open-project-diff-review",
+			name: "Open project diff review",
+			callback: () => {
+				void this.openProjectDiffReview();
+			},
 		});
 
 		this.addCommand({
@@ -167,6 +179,22 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 			type: VIEW_TYPE_TERMINAL,
 			active: true,
 			state: { ...options, cwd } satisfies TerminalViewState,
+		});
+		this.app.workspace.revealLeaf(leaf);
+	}
+
+	private async openProjectDiffReview(): Promise<void> {
+		const projectRoot = resolveProjectRoot(this.app, this.settings.projectRoot);
+		if (!projectRoot) {
+			new Notice("Set a project root (or open a vault on disk) before reviewing Git changes.");
+			return;
+		}
+
+		const leaf = this.app.workspace.getLeaf("tab");
+		await leaf.setViewState({
+			type: VIEW_TYPE_DIFF_REVIEW,
+			active: true,
+			state: { projectRoot } satisfies DiffReviewViewState,
 		});
 		this.app.workspace.revealLeaf(leaf);
 	}
