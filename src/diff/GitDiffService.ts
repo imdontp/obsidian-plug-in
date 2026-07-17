@@ -5,10 +5,16 @@ const MAX_STATUS_BYTES = 128_000;
 
 export interface ProjectDiff {
 	text: string;
+	files: ProjectDiffFile[];
 	filesChanged: number;
 	additions: number;
 	deletions: number;
 	untrackedFiles: number;
+}
+
+export interface ProjectDiffFile {
+	path: string;
+	status: string;
 }
 
 interface GitCommandError extends Error {
@@ -31,15 +37,19 @@ export class GitDiffService {
 			throw new Error("The project root is not a Git working tree.");
 		}
 
-		const [text, status] = await Promise.all([
+		const [text, status, changedFiles] = await Promise.all([
 			this.runGit(root, ["diff", "--no-ext-diff", "--no-textconv", "--unified=3", "HEAD", "--"], MAX_DIFF_BYTES),
 			this.runGit(root, ["status", "--porcelain=v1", "--untracked-files=normal"], MAX_STATUS_BYTES),
+			this.runGit(root, ["diff", "--no-ext-diff", "--no-textconv", "--name-status", "-z", "HEAD", "--"], MAX_STATUS_BYTES),
 		]);
 		const summary = summarizeUnifiedDiff(text);
+		const files = parseChangedFiles(changedFiles);
 
 		return {
 			text,
+			files,
 			...summary,
+			filesChanged: files.length,
 			untrackedFiles: status.split(/\r?\n/).filter((line) => line.startsWith("?? ")).length,
 		};
 	}
@@ -104,4 +114,29 @@ function summarizeUnifiedDiff(text: string): Pick<ProjectDiff, "filesChanged" | 
 	}
 
 	return { filesChanged, additions, deletions };
+}
+
+function parseChangedFiles(output: string): ProjectDiffFile[] {
+	const fields = output.split("\0");
+	const files: ProjectDiffFile[] = [];
+
+	for (let index = 0; index < fields.length;) {
+		const status = fields[index++];
+		if (!status) {
+			continue;
+		}
+
+		const firstPath = fields[index++];
+		if (firstPath === undefined) {
+			break;
+		}
+
+		const code = status.charAt(0);
+		const path = code === "R" || code === "C" ? fields[index++] : firstPath;
+		if (path) {
+			files.push({ path, status });
+		}
+	}
+
+	return files;
 }

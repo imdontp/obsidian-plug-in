@@ -1,6 +1,6 @@
 import { ItemView, ViewStateResult, WorkspaceLeaf } from "obsidian";
 import type ClaudeCodexTerminalPlugin from "../main";
-import type { ProjectDiff } from "./GitDiffService";
+import type { ProjectDiff, ProjectDiffFile } from "./GitDiffService";
 
 export const VIEW_TYPE_DIFF_REVIEW = "claude-codex-diff-review-view";
 
@@ -128,6 +128,7 @@ export class DiffReviewView extends ItemView {
 		}
 
 		this.renderSummary(this.diff);
+		this.renderChangedFiles(this.diff.files);
 		if (this.diff.text.length === 0) {
 			this.contentEl.createDiv({
 				cls: "claude-codex-diff-review-message",
@@ -162,6 +163,32 @@ export class DiffReviewView extends ItemView {
 			});
 		}
 	}
+
+	private renderChangedFiles(files: ProjectDiffFile[]): void {
+		if (files.length === 0) {
+			return;
+		}
+
+		const section = this.contentEl.createDiv({ cls: "claude-codex-diff-review-files" });
+		section.createEl("h3", { text: "Changed files" });
+		const list = section.createDiv({ cls: "claude-codex-diff-review-file-list" });
+		for (const file of files) {
+			const deleted = file.status.startsWith("D");
+			const button = list.createEl("button", {
+				cls: "claude-codex-diff-review-file-button",
+				text: `${getDiffStatusLabel(file.status)} ${file.path}`,
+			});
+			button.disabled = deleted;
+			if (deleted) {
+				button.setAttribute("title", "Deleted files cannot be opened in the external file editor.");
+			} else {
+				button.setAttribute("title", "Open in External File Editor");
+				button.addEventListener("click", () => {
+					void this.plugin.openExternalFileEditor(this.state.projectRoot, file.path);
+				});
+			}
+		}
+	}
 }
 
 function getDiffLineClass(line: string): string {
@@ -181,4 +208,23 @@ function getDiffLineClass(line: string): string {
 		return "claude-codex-diff-review-meta";
 	}
 	return "claude-codex-diff-review-context";
+}
+
+function getDiffStatusLabel(status: string): string {
+	switch (status.charAt(0)) {
+		case "A":
+			return "Added";
+		case "C":
+			return "Copied";
+		case "D":
+			return "Deleted";
+		case "M":
+			return "Modified";
+		case "R":
+			return "Renamed";
+		case "T":
+			return "Type changed";
+		default:
+			return "Changed";
+	}
 }

@@ -10,6 +10,12 @@ import {
 	TerminalViewState,
 	VIEW_TYPE_TERMINAL,
 } from "./terminal/TerminalView";
+import {
+	ExternalFileEditorView,
+	ExternalFileEditorViewState,
+	VIEW_TYPE_EXTERNAL_FILE_EDITOR,
+} from "./editor/ExternalFileEditorView";
+import { ExternalFileService } from "./editor/ExternalFileService";
 import { DiffReviewView, DiffReviewViewState, VIEW_TYPE_DIFF_REVIEW } from "./diff/DiffReviewView";
 import { GitDiffService } from "./diff/GitDiffService";
 import { resolveProjectRoot, resolvePluginDir } from "./utils/paths";
@@ -21,6 +27,7 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 	settings!: ClaudeCodexTerminalSettings;
 	ptyManager!: PtyManager;
 	readonly gitDiffService = new GitDiffService();
+	readonly externalFileService = new ExternalFileService();
 	private readonly terminalSessions = new Map<string, TerminalView>();
 	private contextTargetId: string | null = null;
 	private contextStatusEl: HTMLElement | null = null;
@@ -36,6 +43,10 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 
 		this.registerView(VIEW_TYPE_TERMINAL, (leaf: WorkspaceLeaf) => new TerminalView(leaf, this));
 		this.registerView(VIEW_TYPE_DIFF_REVIEW, (leaf: WorkspaceLeaf) => new DiffReviewView(leaf, this));
+		this.registerView(
+			VIEW_TYPE_EXTERNAL_FILE_EDITOR,
+			(leaf: WorkspaceLeaf) => new ExternalFileEditorView(leaf, this)
+		);
 		this.registerEvent(this.app.workspace.on("css-change", () => this.refreshTerminalThemes()));
 		this.contextStatusEl = this.addStatusBarItem();
 		this.contextStatusEl.setAttribute("role", "button");
@@ -195,6 +206,16 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 			type: VIEW_TYPE_DIFF_REVIEW,
 			active: true,
 			state: { projectRoot } satisfies DiffReviewViewState,
+		});
+		this.app.workspace.revealLeaf(leaf);
+	}
+
+	async openExternalFileEditor(projectRoot: string, relativePath: string): Promise<void> {
+		const leaf = this.app.workspace.getLeaf("tab");
+		await leaf.setViewState({
+			type: VIEW_TYPE_EXTERNAL_FILE_EDITOR,
+			active: true,
+			state: { projectRoot, relativePath } satisfies ExternalFileEditorViewState,
 		});
 		this.app.workspace.revealLeaf(leaf);
 	}

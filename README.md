@@ -20,7 +20,7 @@ Phase 4 handling for missing commands, theme synchronization, and keyboard workf
 | 3 | Context actions: send active file/selection to the running agent, status bar session indicator |
 | 4 | Polish: missing-binary error handling, theme sync, keybindings |
 | 5A | Read-only project Git diff review |
-| 5B (future) | External-file preview / lightweight code editor layer |
+| 5B | Diff-driven external-file preview and lightweight editor |
 
 ## Development
 
@@ -73,3 +73,15 @@ project root. It reads `git diff HEAD` and shows tracked staged/unstaged changes
 - Untracked files are counted but are not displayed in this first version.
 - Git must be available in the environment that launches Obsidian.
 - Diff text stays local; the plugin does not send it over the network.
+
+## External file editor (Phase 5B)
+
+Select a non-deleted file in **Project Diff Review** to open it in the **External File Editor**.
+It is intentionally limited to the changed, tracked files reported by Git for the configured project root.
+
+- The editor reads only UTF-8 text files up to 1 MB, inside the configured project root.
+- It refuses paths outside that root, symbolic links, folders, and binary files.
+- Edits remain local to the tab until you explicitly use **Save** (or `Ctrl/Cmd+S`).
+- Before saving, it compares the file on disk with the version that was opened. If another app changed it,
+  the save is stopped so external work is not overwritten.
+- The plugin does not send file contents over the network.
