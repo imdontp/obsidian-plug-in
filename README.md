@@ -7,7 +7,7 @@ Desktop-only (requires Node.js/Electron APIs not available on Obsidian mobile).
 
 ## Status
 
-Phases 0–7 are implemented. Runtime validation in Obsidian is still recommended for each local setup.
+Phases 0–8 are implemented. Runtime validation in Obsidian is still recommended for each local setup.
 
 ## Roadmap
 
@@ -22,6 +22,7 @@ Phases 0–7 are implemented. Runtime validation in Obsidian is still recommende
 | 5B | Diff-driven external-file preview and lightweight editor |
 | 6 | Project file browser for safe text-file access, including untracked files |
 | 7 | Auto-refreshing Git status with patch/status distinction |
+| 8 | Guarded local Git stage, unstage, and commit actions |
 
 ## Development
 
@@ -70,7 +71,7 @@ default hotkeys, so it cannot conflict with your existing shortcuts. In **Settin
 Use **Open project diff review** from the Command palette to inspect local Git changes for the configured
 project root. It reads `git diff HEAD` and shows tracked staged/unstaged changes in a separate tab.
 
-- The review is read-only: it does not save, stage, apply, reset, or otherwise modify project files.
+- Refreshing the review is read-only. Phase 8 adds explicit local Git actions described below.
 - Untracked files are shown as status entries, but do not have a Git patch until they are tracked.
 - Git must be available in the environment that launches Obsidian.
 - Diff text stays local; the plugin does not send it over the network.
@@ -79,6 +80,16 @@ While the tab is open, the review refreshes every three seconds. It separates fi
 other Git status entries, including untracked files and entries for which Git returns no patch. This makes a
 Git status entry visible without claiming that it has a textual diff. Status entries can be opened in the
 guarded external editor when they still refer to a regular file.
+
+## Guarded Git actions (Phase 8)
+
+For a file listed in Git status, use **Stage** or **Unstage** to change only that file's index state. The
+**Commit...** button is enabled only when changes are staged, and requires a commit message plus a second
+explicit confirmation in a dialog.
+
+- Actions run only against the configured project root and use literal, validated file paths.
+- The plugin does not offer reset, discard, force, remote push, or any automatic Git mutation.
+- A commit is local only. Git hooks may run, just as they do when you commit from a terminal.
 
 ## External file editor (Phase 5B)
 

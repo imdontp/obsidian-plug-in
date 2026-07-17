@@ -18,6 +18,7 @@ import {
 import { ExternalFileService } from "./editor/ExternalFileService";
 import { DiffReviewView, DiffReviewViewState, VIEW_TYPE_DIFF_REVIEW } from "./diff/DiffReviewView";
 import { GitDiffService } from "./diff/GitDiffService";
+import { GitActionService } from "./diff/GitActionService";
 import {
 	ProjectFileBrowserView,
 	ProjectFileBrowserViewState,
@@ -33,6 +34,7 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 	settings!: ClaudeCodexTerminalSettings;
 	ptyManager!: PtyManager;
 	readonly gitDiffService = new GitDiffService();
+	readonly gitActionService = new GitActionService();
 	readonly externalFileService = new ExternalFileService();
 	readonly projectFileService = new ProjectFileService();
 	private readonly terminalSessions = new Map<string, TerminalView>();

@@ -1,5 +1,6 @@
-import { ItemView, ViewStateResult, WorkspaceLeaf } from "obsidian";
+import { ItemView, Notice, ViewStateResult, WorkspaceLeaf } from "obsidian";
 import type ClaudeCodexTerminalPlugin from "../main";
+import { GitCommitModal } from "./GitCommitModal";
 import type { ProjectDiff, ProjectDiffFile, ProjectGitStatusFile } from "./GitDiffService";
 
 export const VIEW_TYPE_DIFF_REVIEW = "claude-codex-diff-review-view";
@@ -24,6 +25,7 @@ export class DiffReviewView extends ItemView {
 	private opened = false;
 	private lastUpdatedAt: Date | null = null;
 	private autoRefreshTimer: number | null = null;
+	private actionInProgress = false;
 
 	constructor(leaf: WorkspaceLeaf, plugin: ClaudeCodexTerminalPlugin) {
 		super(leaf);
@@ -91,7 +93,7 @@ export class DiffReviewView extends ItemView {
 	}
 
 	private async refresh(automatic = false): Promise<void> {
-		if (this.loading) {
+		if (this.loading || this.actionInProgress) {
 			if (!automatic) {
 				this.refreshQueued = true;
 			}
@@ -145,8 +147,23 @@ export class DiffReviewView extends ItemView {
 		heading.createEl("h2", { text: "Project Diff Review" });
 		heading.createEl("code", { text: this.state.projectRoot || "No project root" });
 
-		const refreshButton = toolbar.createEl("button", { text: this.loading ? "Refreshing..." : "Refresh" });
-		refreshButton.disabled = this.loading;
+		const toolbarActions = toolbar.createDiv({ cls: "claude-codex-diff-review-toolbar-actions" });
+		const commitButton = toolbarActions.createEl("button", { cls: "mod-warning", text: "Commit..." });
+		const hasUnmergedFiles = Boolean(this.diff?.statusFiles.some(isUnmergedStatus));
+		const canCommit = Boolean(this.diff && canCommitChanges(this.diff.statusFiles));
+		commitButton.disabled = this.loading || this.actionInProgress || !canCommit;
+		commitButton.setAttribute(
+			"title",
+			canCommit
+				? "Create a local Git commit from staged changes"
+				: hasUnmergedFiles
+					? "Resolve merge conflicts before committing"
+					: "Stage at least one file before committing"
+		);
+		commitButton.addEventListener("click", () => this.openCommitModal());
+
+		const refreshButton = toolbarActions.createEl("button", { text: this.loading ? "Refreshing..." : "Refresh" });
+		refreshButton.disabled = this.loading || this.actionInProgress;
 		refreshButton.addEventListener("click", () => void this.refresh());
 
 		if (this.loading) {
@@ -241,7 +258,8 @@ export class DiffReviewView extends ItemView {
 			const text = statusFile
 				? `${getGitStatusLabel(statusFile)} ${getStatusFilePath(statusFile)}`
 				: `${getDiffStatusLabel(file.status)} ${file.path}`;
-			const button = list.createEl("button", {
+			const actions = list.createDiv({ cls: "claude-codex-diff-review-file-actions" });
+			const button = actions.createEl("button", {
 				cls: "claude-codex-diff-review-file-button",
 				text,
 			});
@@ -253,6 +271,9 @@ export class DiffReviewView extends ItemView {
 				button.addEventListener("click", () => {
 					void this.plugin.openExternalFileEditor(this.state.projectRoot, file.path);
 				});
+			}
+			if (statusFile) {
+				this.renderGitActionButtons(actions, statusFile);
 			}
 		}
 	}
@@ -273,7 +294,8 @@ export class DiffReviewView extends ItemView {
 		const list = section.createDiv({ cls: "claude-codex-diff-review-file-list" });
 		for (const file of files) {
 			const canOpen = !isDeletedStatus(file) && !file.path.endsWith("/");
-			const button = list.createEl("button", {
+			const actions = list.createDiv({ cls: "claude-codex-diff-review-file-actions" });
+			const button = actions.createEl("button", {
 				cls: "claude-codex-diff-review-file-button",
 				text: `${getGitStatusLabel(file)} ${getStatusFilePath(file)}`,
 			});
@@ -286,6 +308,87 @@ export class DiffReviewView extends ItemView {
 			} else {
 				button.setAttribute("title", "This Git status entry does not refer to an openable file.");
 			}
+			this.renderGitActionButtons(actions, file);
+		}
+	}
+
+	private renderGitActionButtons(container: HTMLElement, file: ProjectGitStatusFile): void {
+		const disabled = this.loading || this.actionInProgress;
+		if (canStageStatus(file)) {
+			const stageButton = container.createEl("button", {
+				cls: "claude-codex-diff-review-git-action",
+				text: "Stage",
+			});
+			stageButton.disabled = disabled;
+			stageButton.setAttribute("title", `Stage ${file.path}`);
+			stageButton.addEventListener("click", () => void this.changeFileStatus("stage", file));
+		}
+		if (canUnstageStatus(file)) {
+			const unstageButton = container.createEl("button", {
+				cls: "claude-codex-diff-review-git-action",
+				text: "Unstage",
+			});
+			unstageButton.disabled = disabled;
+			unstageButton.setAttribute("title", `Unstage ${file.path}`);
+			unstageButton.addEventListener("click", () => void this.changeFileStatus("unstage", file));
+		}
+	}
+
+	private async changeFileStatus(action: "stage" | "unstage", file: ProjectGitStatusFile): Promise<void> {
+		if (this.loading || this.actionInProgress) {
+			return;
+		}
+
+		this.actionInProgress = true;
+		this.render();
+		try {
+			if (action === "stage") {
+				await this.plugin.gitActionService.stageFile(this.state.projectRoot, file.path);
+				new Notice(`Staged ${file.path}.`);
+			} else {
+				await this.plugin.gitActionService.unstageFile(this.state.projectRoot, file.path);
+				new Notice(`Unstaged ${file.path}.`);
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : `Could not ${action} the file.`;
+			new Notice(message);
+		} finally {
+			this.actionInProgress = false;
+			void this.refresh();
+		}
+	}
+
+	private openCommitModal(): void {
+		if (this.actionInProgress || this.loading) {
+			return;
+		}
+		if (!this.diff || !canCommitChanges(this.diff.statusFiles)) {
+			new Notice(
+				this.diff?.statusFiles.some(isUnmergedStatus)
+					? "Resolve merge conflicts before creating a commit."
+					: "Stage at least one file before creating a commit."
+			);
+			return;
+		}
+
+		new GitCommitModal(this.plugin.app, async (message) => this.commitStagedChanges(message)).open();
+	}
+
+	private async commitStagedChanges(message: string): Promise<void> {
+		if (this.actionInProgress || this.loading) {
+			throw new Error("Wait for the current Git operation to finish before committing.");
+		}
+
+		this.actionInProgress = true;
+		this.render();
+		try {
+			const commitId = await this.plugin.gitActionService.commitStagedChanges(this.state.projectRoot, message);
+			new Notice(`Created local Git commit ${commitId}.`);
+		} catch (error) {
+			throw error instanceof Error ? error : new Error("Could not create the Git commit.");
+		} finally {
+			this.actionInProgress = false;
+			void this.refresh();
 		}
 	}
 }
@@ -320,6 +423,28 @@ function sameStatusFiles(left: ProjectGitStatusFile[], right: ProjectGitStatusFi
 
 function isUntrackedStatus(file: ProjectGitStatusFile): boolean {
 	return file.indexStatus === "?" && file.workTreeStatus === "?";
+}
+
+function hasStagedChanges(files: ProjectGitStatusFile[]): boolean {
+	return files.some((file) => file.indexStatus !== " " && file.indexStatus !== "?");
+}
+
+function canCommitChanges(files: ProjectGitStatusFile[]): boolean {
+	return !files.some(isUnmergedStatus) && hasStagedChanges(files);
+}
+
+function canStageStatus(file: ProjectGitStatusFile): boolean {
+	return !isUnmergedStatus(file)
+		&& !file.path.endsWith("/")
+		&& (isUntrackedStatus(file) || file.workTreeStatus !== " ");
+}
+
+function canUnstageStatus(file: ProjectGitStatusFile): boolean {
+	return !isUnmergedStatus(file) && file.indexStatus !== " " && file.indexStatus !== "?";
+}
+
+function isUnmergedStatus(file: ProjectGitStatusFile): boolean {
+	return file.indexStatus === "U" || file.workTreeStatus === "U";
 }
 
 function isDeletedStatus(file: ProjectGitStatusFile): boolean {

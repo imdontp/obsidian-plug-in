@@ -256,6 +256,12 @@
 	gap: var(--size-4-3);
 }
 
+.claude-codex-diff-review-toolbar-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
 .claude-codex-diff-review-heading {
 	min-width: 0;
 }
@@ -331,6 +337,45 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-family: var(--font-monospace);
+}
+
+.claude-codex-diff-review-file-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	width: 100%;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.claude-codex-diff-review-file-actions .claude-codex-diff-review-file-button {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.claude-codex-diff-review-git-action {
+	flex: 0 0 auto;
+}
+
+.claude-codex-git-commit-message {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 6rem;
+	resize: vertical;
+	font-family: var(--font-monospace);
+}
+
+.claude-codex-git-commit-error {
+	min-height: 1.5em;
+	margin-top: var(--size-4-2);
+	color: var(--text-error, var(--text-normal));
+}
+
+.claude-codex-git-commit-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-4);
 }
 
 .claude-codex-diff-review-message,
