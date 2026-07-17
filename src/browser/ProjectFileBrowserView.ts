@@ -31,6 +31,7 @@ export class ProjectFileBrowserView extends ItemView {
 	private previewError: string | null = null;
 	private previewLoading = false;
 	private previewRequestId = 0;
+	private webPreviewExpanded = false;
 	private resultsEl: HTMLElement | null = null;
 	private countEl: HTMLElement | null = null;
 	private fileListEl: HTMLElement | null = null;
@@ -93,6 +94,7 @@ export class ProjectFileBrowserView extends ItemView {
 		this.preview = null;
 		this.previewError = null;
 		this.previewLoading = false;
+		this.webPreviewExpanded = false;
 	}
 
 	private async refresh(): Promise<void> {
@@ -130,6 +132,7 @@ export class ProjectFileBrowserView extends ItemView {
 	}
 
 	private render(): void {
+		this.contentEl.classList.toggle("is-web-preview-expanded", this.webPreviewExpanded);
 		this.contentEl.empty();
 		this.resultsEl = null;
 		this.countEl = null;
@@ -211,6 +214,20 @@ export class ProjectFileBrowserView extends ItemView {
 		const openEditorButton = actions.createEl("button", { cls: "mod-cta", text: "Open editor" });
 		openEditorButton.disabled = !this.preview || this.previewLoading;
 		openEditorButton.addEventListener("click", () => this.openPreviewInEditor());
+
+		if (this.hasSelectedWebPreview()) {
+			const expandButton = actions.createEl("button", {
+				text: this.webPreviewExpanded ? "Exit full preview" : "Expand preview",
+			});
+			expandButton.setAttribute("aria-pressed", String(this.webPreviewExpanded));
+			expandButton.setAttribute(
+				"title",
+				this.webPreviewExpanded
+					? "Return to the project file list"
+					: "Expand the webpage preview to fill this tab"
+			);
+			expandButton.addEventListener("click", () => this.toggleWebPreviewExpanded());
+		}
 
 		if (this.previewLoading) {
 			previewPane.createDiv({
@@ -358,6 +375,19 @@ export class ProjectFileBrowserView extends ItemView {
 		}
 
 		void this.plugin.openExternalFileEditor(this.preview.projectRoot, this.preview.relativePath);
+	}
+
+	private toggleWebPreviewExpanded(): void {
+		if (!this.hasSelectedWebPreview()) {
+			return;
+		}
+
+		this.webPreviewExpanded = !this.webPreviewExpanded;
+		this.render();
+	}
+
+	private hasSelectedWebPreview(): boolean {
+		return Boolean(this.selectedPath && getProjectFilePreviewKind(this.selectedPath) === "web");
 	}
 }
 

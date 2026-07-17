@@ -7,7 +7,7 @@ Desktop-only (requires Node.js/Electron APIs not available on Obsidian mobile).
 
 ## Status
 
-Phases 0–10 are implemented. Runtime validation in Obsidian is still recommended for each local setup.
+Phases 0–11 are implemented. Runtime validation in Obsidian is still recommended for each local setup.
 
 ## Roadmap
 
@@ -25,6 +25,7 @@ Phases 0–10 are implemented. Runtime validation in Obsidian is still recommend
 | 8 | Guarded local Git stage, unstage, and commit actions |
 | 9 | Read-only project file preview with an explicit editor action |
 | 10 | Sandboxed static webpage preview for HTML project files |
+| 11 | Expandable in-tab webpage preview |
 
 ## Development
 
@@ -119,3 +120,5 @@ project root. If Project root is blank, it uses the local vault currently open i
 - `.html` and `.htm` files display as a sandboxed webpage instead of source text. JavaScript, forms,
   network access, and linked local/external assets are blocked, so this is safe static HTML/CSS preview—not
   an interactive development server.
+- Use **Expand preview** to hide the file list and give the webpage preview the full content area of the
+  current Obsidian tab. **Exit full preview** returns to the browser list.

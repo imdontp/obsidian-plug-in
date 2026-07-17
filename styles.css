@@ -470,6 +470,18 @@
 	gap: var(--size-4-3);
 }
 
+.claude-codex-project-file-browser.is-web-preview-expanded .claude-codex-project-file-browser-content {
+	display: flex;
+}
+
+.claude-codex-project-file-browser.is-web-preview-expanded .claude-codex-project-file-browser-file-pane {
+	display: none;
+}
+
+.claude-codex-project-file-browser.is-web-preview-expanded .claude-codex-project-file-browser-preview-pane {
+	flex: 1 1 auto;
+}
+
 .claude-codex-project-file-browser-file-pane,
 .claude-codex-project-file-browser-preview-pane {
 	display: flex;
