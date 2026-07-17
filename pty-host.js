@@ -17,6 +17,15 @@ const pty = require("node-pty");
 
 let ptyProcess = null;
 
+function reportStartError(message) {
+	if (!process.send) {
+		process.exit(1);
+		return;
+	}
+
+	process.send({ type: "error", message }, () => process.exit(1));
+}
+
 process.on("message", (message) => {
 	if (!message || typeof message !== "object") {
 		return;
@@ -24,13 +33,25 @@ process.on("message", (message) => {
 
 	switch (message.type) {
 		case "spawn": {
-			ptyProcess = pty.spawn(message.shellPath, message.args || [], {
-				name: "xterm-256color",
-				cols: message.cols || 80,
-				rows: message.rows || 24,
-				cwd: message.cwd,
-				env: message.env || process.env,
-			});
+			const shellPath = typeof message.shellPath === "string" ? message.shellPath.trim() : "";
+			if (!shellPath) {
+				reportStartError("Terminal command is empty. Set the command in the plugin settings and try again.");
+				break;
+			}
+
+			try {
+				ptyProcess = pty.spawn(shellPath, message.args || [], {
+					name: "xterm-256color",
+					cols: message.cols || 80,
+					rows: message.rows || 24,
+					cwd: message.cwd,
+					env: message.env || process.env,
+				});
+			} catch (error) {
+				const details = error instanceof Error ? error.message : String(error);
+				reportStartError(`Could not start ${shellPath}: ${details}`);
+				break;
+			}
 
 			ptyProcess.onData((data) => {
 				if (process.send) {

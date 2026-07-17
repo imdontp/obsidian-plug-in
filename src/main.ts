@@ -1,4 +1,4 @@
-import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
+import { FileSystemAdapter, MarkdownView, Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import { ClaudeCodexTerminalSettingTab } from "./settings/SettingsTab";
 import {
 	ClaudeCodexTerminalSettings,
@@ -13,9 +13,14 @@ import {
 import { resolveProjectRoot, resolvePluginDir } from "./utils/paths";
 import { resolveNodePath } from "./utils/node";
 
+const MAX_SELECTION_CONTEXT_LENGTH = 20_000;
+
 export default class ClaudeCodexTerminalPlugin extends Plugin {
 	settings!: ClaudeCodexTerminalSettings;
 	ptyManager!: PtyManager;
+	private readonly terminalSessions = new Map<string, TerminalView>();
+	private contextTargetId: string | null = null;
+	private contextStatusEl: HTMLElement | null = null;
 
 	async onload() {
 		await this.loadSettings();
@@ -27,6 +32,18 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 		this.ptyManager = new PtyManager(pluginDir, resolveNodePath(this.settings.nodePath));
 
 		this.registerView(VIEW_TYPE_TERMINAL, (leaf: WorkspaceLeaf) => new TerminalView(leaf, this));
+		this.registerEvent(this.app.workspace.on("css-change", () => this.refreshTerminalThemes()));
+		this.contextStatusEl = this.addStatusBarItem();
+		this.contextStatusEl.setAttribute("role", "button");
+		this.contextStatusEl.setAttribute("tabindex", "0");
+		this.registerDomEvent(this.contextStatusEl, "click", () => this.revealContextTarget());
+		this.registerDomEvent(this.contextStatusEl, "keydown", (event: KeyboardEvent) => {
+			if (event.key === "Enter" || event.key === " ") {
+				event.preventDefault();
+				this.revealContextTarget();
+			}
+		});
+		this.updateContextStatus();
 
 		this.addSettingTab(new ClaudeCodexTerminalSettingTab(this.app, this));
 
@@ -48,7 +65,7 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 			callback: () => {
 				void this.launchTerminal({
 					title: "Claude Code",
-					command: this.settings.agents.claude.binary,
+					command: this.getAgentBinary("claude"),
 					args: this.settings.agents.claude.defaultArgs,
 				});
 			},
@@ -60,19 +77,77 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 			callback: () => {
 				void this.launchTerminal({
 					title: "Codex",
-					command: this.settings.agents.codex.binary,
+					command: this.getAgentBinary("codex"),
 					args: this.settings.agents.codex.defaultArgs,
 				});
+			},
+		});
+
+		this.addCommand({
+			id: "focus-context-target",
+			name: "Focus context target terminal",
+			callback: () => this.revealContextTarget(true),
+		});
+
+		this.addCommand({
+			id: "paste-active-file-into-context-target",
+			name: "Paste active file path into context target",
+			callback: () => this.pasteActiveFileIntoContextTarget(),
+		});
+
+		this.addCommand({
+			id: "paste-selection-into-context-target",
+			name: "Paste selection into context target",
+			editorCallback: (editor, context) => {
+				const file = context.file;
+				if (!file) {
+					new Notice("Save the active Markdown note before pasting its selection into a terminal session.");
+					return;
+				}
+				this.pasteSelectionIntoContextTarget(editor.getSelection(), file);
 			},
 		});
 	}
 
 	onunload() {
 		this.ptyManager?.killAll();
+		this.terminalSessions.clear();
+		this.contextTargetId = null;
+		this.contextStatusEl = null;
 	}
 
 	refreshNodePath(): void {
 		this.ptyManager?.setNodePath(resolveNodePath(this.settings.nodePath));
+	}
+
+	registerTerminalSession(view: TerminalView): void {
+		this.terminalSessions.set(view.getSessionId(), view);
+		this.contextTargetId = view.getSessionId();
+		this.updateContextStatus();
+	}
+
+	unregisterTerminalSession(view: TerminalView): void {
+		const sessionId = view.getSessionId();
+		this.terminalSessions.delete(sessionId);
+		if (this.contextTargetId === sessionId) {
+			this.contextTargetId = null;
+		}
+		this.updateContextStatus();
+	}
+
+	refreshTerminalSession(view: TerminalView): void {
+		if (this.terminalSessions.has(view.getSessionId())) {
+			this.updateContextStatus();
+		}
+	}
+
+	setContextTarget(view: TerminalView): void {
+		if (!this.terminalSessions.has(view.getSessionId())) {
+			return;
+		}
+
+		this.contextTargetId = view.getSessionId();
+		this.updateContextStatus();
 	}
 
 	async launchTerminal(options: Omit<TerminalViewState, "cwd">): Promise<void> {
@@ -96,8 +171,137 @@ export default class ClaudeCodexTerminalPlugin extends Plugin {
 		this.app.workspace.revealLeaf(leaf);
 	}
 
+	private getAgentBinary(agent: "claude" | "codex"): string {
+		const configuredBinary = this.settings.agents[agent]?.binary;
+		return typeof configuredBinary === "string" && configuredBinary.trim()
+			? configuredBinary.trim()
+			: DEFAULT_SETTINGS.agents[agent].binary;
+	}
+
+	private pasteActiveFileIntoContextTarget(): void {
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		const file = view?.file;
+		if (!file) {
+			new Notice("Open a Markdown note before pasting its path into a terminal session.");
+			return;
+		}
+
+		const prompt = `Use this active Obsidian note as context: ${this.getFileLocation(file)}. Do not modify it unless I ask.`;
+		this.pasteIntoContextTarget(prompt);
+	}
+
+	private pasteSelectionIntoContextTarget(selection: string, file: TFile): void {
+		if (selection.trim().length === 0) {
+			new Notice("Select text in a Markdown note before pasting it into a terminal session.");
+			return;
+		}
+
+		if (selection.length > MAX_SELECTION_CONTEXT_LENGTH) {
+			new Notice(`Selection is too large to paste safely. Select at most ${MAX_SELECTION_CONTEXT_LENGTH.toLocaleString()} characters.`);
+			return;
+		}
+
+		const isMultiline = /[\r\n]/.test(selection);
+		const prompt = isMultiline
+			? [
+				"Use this selected text from my active Obsidian note as context.",
+				"",
+				`File: ${this.getFileLocation(file)}`,
+				"",
+				`~~~${file.extension}`,
+				selection,
+				"~~~",
+			].join("\n")
+			: `Use this selected text from ${this.getFileLocation(file)} as context: ${selection}`;
+		this.pasteIntoContextTarget(prompt, isMultiline);
+	}
+
+	private pasteIntoContextTarget(text: string, requiresBracketedPaste = false): void {
+		const target = this.getContextTarget();
+		if (!target) {
+			new Notice("Focus an open terminal session before pasting context.");
+			return;
+		}
+
+		if (requiresBracketedPaste && !target.supportsBracketedPaste()) {
+			new Notice("This terminal does not support safe multi-line paste. Focus a running Claude or Codex session, or select one line.");
+			return;
+		}
+
+		if (!target.pasteContext(text)) {
+			this.updateContextStatus();
+			new Notice("The selected terminal session is no longer running.");
+			return;
+		}
+
+		new Notice(`Context pasted into ${target.getSessionTitle()}. Review it, then press Enter to send.`);
+	}
+
+	private getContextTarget(): TerminalView | null {
+		const current = this.contextTargetId ? this.terminalSessions.get(this.contextTargetId) : null;
+		if (current?.isInteractive()) {
+			return current;
+		}
+
+		const fallback = Array.from(this.terminalSessions.values())
+			.reverse()
+			.find((view) => view.isInteractive()) ?? null;
+		this.contextTargetId = fallback?.getSessionId() ?? null;
+		return fallback;
+	}
+
+	private revealContextTarget(showMissingNotice = false): void {
+		const target = this.getContextTarget();
+		if (target) {
+			target.reveal();
+			return;
+		}
+
+		if (showMissingNotice) {
+			new Notice("Open a running terminal session before focusing the context target.");
+		}
+	}
+
+	private refreshTerminalThemes(): void {
+		for (const view of this.terminalSessions.values()) {
+			view.refreshTheme();
+		}
+	}
+
+	private updateContextStatus(): void {
+		if (!this.contextStatusEl) {
+			return;
+		}
+
+		const target = this.getContextTarget();
+		if (!target) {
+			this.contextStatusEl.setText("Context: no terminal");
+			this.contextStatusEl.setAttribute("aria-label", "No active terminal context target");
+			this.contextStatusEl.setAttribute("title", "Focus a terminal session to set the context target.");
+			return;
+		}
+
+		const label = `Context: ${target.getSessionTitle()}`;
+		this.contextStatusEl.setText(label);
+		this.contextStatusEl.setAttribute("aria-label", `${label}. Activate to open the terminal.`);
+		this.contextStatusEl.setAttribute("title", `${label}. Click to open the terminal.`);
+	}
+
+	private getFileLocation(file: TFile): string {
+		const adapter = this.app.vault.adapter;
+		return adapter instanceof FileSystemAdapter ? adapter.getFullPath(file.path) : file.path;
+	}
+
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const saved = (await this.loadData()) as Partial<ClaudeCodexTerminalSettings> | null;
+		this.settings = {
+			...DEFAULT_SETTINGS,
+			...saved,
+			agents: {
+				claude: { ...DEFAULT_SETTINGS.agents.claude, ...saved?.agents?.claude },
+				codex: { ...DEFAULT_SETTINGS.agents.codex, ...saved?.agents?.codex },
+			},
+		};
 	}
 
 	async saveSettings() {

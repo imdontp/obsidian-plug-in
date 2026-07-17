@@ -7,8 +7,8 @@ Desktop-only (requires Node.js/Electron APIs not available on Obsidian mobile).
 
 ## Status
 
-Phase 0 — project scaffold. No terminal functionality yet; the plugin currently only registers a
-placeholder command/ribbon icon and a settings tab.
+Phase 3 manual validation is in progress. The native terminal and agent launch commands are implemented;
+Phase 4 handling for missing commands, theme synchronization, and keyboard workflow is also implemented.
 
 ## Roadmap
 
@@ -37,4 +37,28 @@ under "Installed plugins").
 - **Project root** — absolute path to the code project the terminal/agents should run in. Intentionally
   separate from the vault path, so a vault can be used purely for notes while the terminal operates on a
   different repo.
-- **Claude Code binary** / **Codex binary** — command or absolute path used to spawn each agent.
+- **Claude Code binary** / **Codex binary** — command or absolute path used to spawn each agent. Leave
+  either blank to use `claude` or `codex` from `PATH`. On Windows, agent commands are launched through
+  PowerShell so `.cmd` and `.ps1` shims work as they do in an interactive terminal.
+
+## Context actions
+
+Focus a terminal session to make it the **context target** (also shown in the status bar), then use
+the Command palette to:
+
+- **Paste active file path into context target** — inserts the active note's absolute path.
+- **Paste selection into context target** — inserts up to 20,000 selected characters from a Markdown note.
+
+The plugin reveals the target terminal and pastes the context, but never presses Enter. Review the
+prompt and submit it yourself. Multi-line selections require a target that supports bracketed paste,
+such as an active Claude or Codex TUI session.
+
+## Theme and keyboard workflow
+
+Open terminal panes update their colors when Obsidian's theme or CSS changes. The plugin does not reserve
+default hotkeys, so it cannot conflict with your existing shortcuts. In **Settings > Hotkeys**, search for
+**Claude & Codex Terminal** and assign your preferred keys to commands such as:
+
+- **Focus context target terminal**
+- **Launch Claude Code**
+- **Paste active file path into context target**

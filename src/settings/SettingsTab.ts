@@ -48,9 +48,10 @@ export class ClaudeCodexTerminalSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Claude Code binary")
-			.setDesc("Command or path used to launch Claude Code.")
+			.setDesc("Command or absolute path used to launch Claude Code. Leave empty to use claude from PATH.")
 			.addText((text) =>
 				text
+					.setPlaceholder("claude")
 					.setValue(this.plugin.settings.agents.claude.binary)
 					.onChange(async (value) => {
 						this.plugin.settings.agents.claude.binary = value;
@@ -60,9 +61,10 @@ export class ClaudeCodexTerminalSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Codex binary")
-			.setDesc("Command or path used to launch Codex.")
+			.setDesc("Command or absolute path used to launch Codex. Leave empty to use codex from PATH.")
 			.addText((text) =>
 				text
+					.setPlaceholder("codex")
 					.setValue(this.plugin.settings.agents.codex.binary)
 					.onChange(async (value) => {
 						this.plugin.settings.agents.codex.binary = value;

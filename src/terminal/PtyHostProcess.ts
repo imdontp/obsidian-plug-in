@@ -27,6 +27,8 @@ export class PtyHostProcess {
 	private readonly child: ChildProcess;
 	private readonly dataListeners: DataListener[] = [];
 	private readonly exitListeners: ExitListener[] = [];
+	private readonly pendingData: string[] = [];
+	private exitEvent: PtyExitEvent | null = null;
 	private channelOpen = true;
 
 	constructor(pluginDir: string, nodePath: string, options: PtySpawnOptions) {
@@ -51,14 +53,15 @@ export class PtyHostProcess {
 		});
 
 		this.child.on("exit", (code) => {
-			if (!this.channelOpen) return;
 			this.channelOpen = false;
 			this.emitExit({ exitCode: code ?? 0 });
 		});
 
-		this.child.on("message", (message: { type: string; data?: string; exitCode?: number; signal?: number }) => {
+		this.child.on("message", (message: { type: string; data?: string; exitCode?: number; signal?: number; message?: string }) => {
 			if (message?.type === "data" && typeof message.data === "string") {
 				this.emitData(message.data);
+			} else if (message?.type === "error" && typeof message.message === "string") {
+				this.emitData(`\r\n\x1b[31m[failed to start terminal: ${message.message}]\x1b[0m\r\n`);
 			} else if (message?.type === "exit") {
 				this.channelOpen = false;
 				this.emitExit({ exitCode: message.exitCode ?? 0, signal: message.signal });
@@ -77,10 +80,20 @@ export class PtyHostProcess {
 	}
 
 	private emitData(data: string): void {
+		if (this.dataListeners.length === 0) {
+			this.pendingData.push(data);
+			return;
+		}
+
 		for (const listener of this.dataListeners) listener(data);
 	}
 
 	private emitExit(event: PtyExitEvent): void {
+		if (this.exitEvent) {
+			return;
+		}
+
+		this.exitEvent = event;
 		for (const listener of this.exitListeners) listener(event);
 	}
 
@@ -93,10 +106,12 @@ export class PtyHostProcess {
 
 	onData(listener: DataListener): void {
 		this.dataListeners.push(listener);
+		for (const data of this.pendingData.splice(0)) listener(data);
 	}
 
 	onExit(listener: ExitListener): void {
 		this.exitListeners.push(listener);
+		if (this.exitEvent) listener(this.exitEvent);
 	}
 
 	write(data: string): void {

@@ -35,8 +35,8 @@
 }
 
 .xterm .composition-view {
-	background: #000;
-	color: #fff;
+	background: var(--background-primary, #000);
+	color: var(--text-normal, #fff);
 	display: none;
 	position: absolute;
 	white-space: nowrap;
@@ -48,7 +48,7 @@
 }
 
 .xterm .xterm-viewport {
-	background-color: #000;
+	background-color: var(--background-primary, #000);
 	overflow-y: scroll;
 	cursor: default;
 	position: absolute;
