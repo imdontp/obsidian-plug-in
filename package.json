@@ -10,7 +10,8 @@
 		"test:external-file": "node tests/external-file-service.test.js",
 		"test:git-diff": "node tests/git-diff-service.test.js",
 		"test:project-files": "node tests/project-file-service.test.js",
-		"test:git-actions": "node tests/git-action-service.test.js"
+		"test:git-actions": "node tests/git-action-service.test.js",
+		"test:web-preview": "node tests/web-preview-document.test.js"
 	},
 	"license": "MIT",
 	"devDependencies": {

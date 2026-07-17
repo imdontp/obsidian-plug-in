@@ -2,6 +2,7 @@ import { ItemView, ViewStateResult, WorkspaceLeaf } from "obsidian";
 import type ClaudeCodexTerminalPlugin from "../main";
 import type { ProjectFileListing } from "./ProjectFileService";
 import type { ExternalTextFile } from "../editor/ExternalFileService";
+import { createSandboxedWebPreviewDocument, getProjectFilePreviewKind } from "./WebPreviewDocument";
 
 export const VIEW_TYPE_PROJECT_FILE_BROWSER = "claude-codex-project-file-browser-view";
 
@@ -236,7 +237,21 @@ export class ProjectFileBrowserView extends ItemView {
 		}
 
 		const status = previewPane.createDiv({ cls: "claude-codex-project-file-browser-preview-status" });
-		status.createSpan({ text: "Read-only preview" });
+		if (getProjectFilePreviewKind(this.preview.relativePath) === "web") {
+			status.createSpan({ text: "Sandboxed webpage preview" });
+			status.createSpan({ text: "Scripts and network access are blocked" });
+
+			const webPreview = previewPane.createEl("iframe", {
+				cls: "claude-codex-project-file-browser-web-preview",
+			});
+			webPreview.setAttribute("sandbox", "");
+			webPreview.setAttribute("referrerpolicy", "no-referrer");
+			webPreview.setAttribute("title", `Sandboxed webpage preview of ${this.preview.relativePath}`);
+			webPreview.srcdoc = createSandboxedWebPreviewDocument(this.preview.text);
+			return;
+		}
+
+		status.createSpan({ text: "Read-only text preview" });
 		status.createSpan({ text: "UTF-8 text files up to 1 MB" });
 
 		const previewText = previewPane.createEl("pre", { cls: "claude-codex-project-file-browser-preview-text" });

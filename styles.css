@@ -583,6 +583,17 @@
 	tab-size: 2;
 }
 
+.claude-codex-project-file-browser-web-preview {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	flex: 1 1 auto;
+	min-height: 0;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: white;
+}
+
 .claude-codex-project-file-browser-message,
 .claude-codex-project-file-browser-error {
 	padding: var(--size-4-3);
