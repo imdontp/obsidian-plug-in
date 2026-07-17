@@ -157,7 +157,7 @@ export class ExternalFileEditorView extends ItemView {
 				this.snapshot = saved;
 				this.draft = toEditorText(saved.text);
 				this.dirty = false;
-				new Notice(`Saved ${this.state.relativePath}. Refresh Project Diff Review to update its diff.`);
+				new Notice(`Saved ${this.state.relativePath}. Reload the file preview or refresh Project Diff Review to update it.`);
 			}
 		} catch (error) {
 			if (requestKey === this.getStateKey()) {

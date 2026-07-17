@@ -7,7 +7,7 @@ Desktop-only (requires Node.js/Electron APIs not available on Obsidian mobile).
 
 ## Status
 
-Phases 0–8 are implemented. Runtime validation in Obsidian is still recommended for each local setup.
+Phases 0–9 are implemented. Runtime validation in Obsidian is still recommended for each local setup.
 
 ## Roadmap
 
@@ -23,6 +23,7 @@ Phases 0–8 are implemented. Runtime validation in Obsidian is still recommende
 | 6 | Project file browser for safe text-file access, including untracked files |
 | 7 | Auto-refreshing Git status with patch/status distinction |
 | 8 | Guarded local Git stage, unstage, and commit actions |
+| 9 | Read-only project file preview with an explicit editor action |
 
 ## Development
 
@@ -93,8 +94,8 @@ explicit confirmation in a dialog.
 
 ## External file editor (Phase 5B)
 
-Select a non-deleted file in **Project Diff Review**, or a file in **Project File Browser**, to open it in
-the **External File Editor**.
+Select a non-deleted file in **Project Diff Review**, or choose **Open editor** after previewing a file in
+**Project File Browser**, to open it in the **External File Editor**.
 
 - The editor reads only UTF-8 text files up to 1 MB, inside the configured project root.
 - It refuses paths outside that root, symbolic links, folders, and binary files.
@@ -111,5 +112,6 @@ project root. If Project root is blank, it uses the local vault currently open i
 - The browser includes files that Git does not show, such as untracked files and non-Git project files.
 - It lists paths and sizes without reading file contents. File contents are read only after you choose a file.
 - `.git`, `.obsidian`, `node_modules`, and symbolic links are excluded; the list is capped at 5,000 files.
-- Filter by path, then open a file in the same guarded editor described above. Only UTF-8 text files up to
-  1 MB can be opened and saved.
+- Filter by path, then select a file to show its read-only preview directly in the browser. Only UTF-8 text
+  files up to 1 MB can be previewed. Use **Open editor** explicitly to open the same guarded editor for
+  editing and saving.

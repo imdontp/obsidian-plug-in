@@ -462,6 +462,23 @@
 	width: 100%;
 }
 
+.claude-codex-project-file-browser-content {
+	display: grid;
+	grid-template-columns: minmax(12rem, 0.85fr) minmax(0, 1.5fr);
+	flex: 1 1 auto;
+	min-height: 0;
+	gap: var(--size-4-3);
+}
+
+.claude-codex-project-file-browser-file-pane,
+.claude-codex-project-file-browser-preview-pane {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	gap: var(--size-4-2);
+}
+
 .claude-codex-project-file-browser-summary {
 	display: flex;
 	flex-wrap: wrap;
@@ -502,6 +519,70 @@
 	background: var(--background-modifier-hover);
 }
 
+.claude-codex-project-file-browser-file-button.is-selected {
+	background: var(--background-modifier-active-hover, var(--background-modifier-hover));
+}
+
+.claude-codex-project-file-browser-preview-pane {
+	padding: var(--size-4-3);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-primary-alt, var(--background-primary));
+}
+
+.claude-codex-project-file-browser-preview-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--size-4-3);
+}
+
+.claude-codex-project-file-browser-preview-heading {
+	min-width: 0;
+}
+
+.claude-codex-project-file-browser-preview-heading h3 {
+	margin: 0;
+	font-size: var(--font-ui-medium);
+}
+
+.claude-codex-project-file-browser-preview-heading code {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text-muted);
+}
+
+.claude-codex-project-file-browser-preview-actions,
+.claude-codex-project-file-browser-preview-status {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+}
+
+.claude-codex-project-file-browser-preview-status {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.claude-codex-project-file-browser-preview-text {
+	box-sizing: border-box;
+	flex: 1 1 auto;
+	min-height: 0;
+	margin: 0;
+	padding: var(--size-4-3);
+	overflow: auto;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	background: var(--background-primary);
+	font-family: var(--font-monospace);
+	font-size: var(--font-text-size);
+	line-height: var(--line-height-normal);
+	white-space: pre;
+	tab-size: 2;
+}
+
 .claude-codex-project-file-browser-message,
 .claude-codex-project-file-browser-error {
 	padding: var(--size-4-3);
@@ -511,6 +592,13 @@
 
 .claude-codex-project-file-browser-error {
 	color: var(--text-error, var(--text-normal));
+}
+
+@media (max-width: 700px) {
+	.claude-codex-project-file-browser-content {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: minmax(12rem, 0.8fr) minmax(12rem, 1.2fr);
+	}
 }
 
 /* External file editor */

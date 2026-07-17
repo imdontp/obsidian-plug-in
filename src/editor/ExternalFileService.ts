@@ -164,7 +164,7 @@ function toFriendlyFileError(error: unknown, action: "read" | "save"): Error {
 		? String((error as { code?: unknown }).code)
 		: "";
 	if (code === "ENOENT") {
-		return new ExternalFileError("The file no longer exists. Refresh the Project Diff Review and choose it again.");
+		return new ExternalFileError("The file no longer exists. Refresh the file list and choose it again.");
 	}
 	if (code === "EACCES" || code === "EPERM") {
 		return new ExternalFileError(`Permission was denied while trying to ${action} this file.`);

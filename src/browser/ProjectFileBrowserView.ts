@@ -1,6 +1,7 @@
 import { ItemView, ViewStateResult, WorkspaceLeaf } from "obsidian";
 import type ClaudeCodexTerminalPlugin from "../main";
 import type { ProjectFileListing } from "./ProjectFileService";
+import type { ExternalTextFile } from "../editor/ExternalFileService";
 
 export const VIEW_TYPE_PROJECT_FILE_BROWSER = "claude-codex-project-file-browser-view";
 
@@ -14,7 +15,7 @@ const DEFAULT_STATE: ProjectFileBrowserViewState = {
 
 const MAX_RENDERED_FILE_COUNT = 500;
 
-/** Browses project files and delegates every opened file to the guarded text editor. */
+/** Browses project files with a read-only preview before an explicit editor action. */
 export class ProjectFileBrowserView extends ItemView {
 	private readonly plugin: ClaudeCodexTerminalPlugin;
 	private state: ProjectFileBrowserViewState = DEFAULT_STATE;
@@ -24,6 +25,11 @@ export class ProjectFileBrowserView extends ItemView {
 	private refreshQueued = false;
 	private opened = false;
 	private filter = "";
+	private selectedPath: string | null = null;
+	private preview: ExternalTextFile | null = null;
+	private previewError: string | null = null;
+	private previewLoading = false;
+	private previewRequestId = 0;
 	private resultsEl: HTMLElement | null = null;
 	private countEl: HTMLElement | null = null;
 	private fileListEl: HTMLElement | null = null;
@@ -54,6 +60,7 @@ export class ProjectFileBrowserView extends ItemView {
 			this.listing = null;
 			this.error = null;
 			this.filter = "";
+			this.clearPreview();
 		}
 
 		await super.setState(state, result);
@@ -77,6 +84,14 @@ export class ProjectFileBrowserView extends ItemView {
 
 	async onClose(): Promise<void> {
 		this.opened = false;
+	}
+
+	private clearPreview(): void {
+		this.previewRequestId += 1;
+		this.selectedPath = null;
+		this.preview = null;
+		this.previewError = null;
+		this.previewLoading = false;
 	}
 
 	private async refresh(): Promise<void> {
@@ -149,7 +164,10 @@ export class ProjectFileBrowserView extends ItemView {
 			return;
 		}
 
-		const search = this.contentEl.createEl("input", {
+		const content = this.contentEl.createDiv({ cls: "claude-codex-project-file-browser-content" });
+		const filePane = content.createDiv({ cls: "claude-codex-project-file-browser-file-pane" });
+
+		const search = filePane.createEl("input", {
 			cls: "claude-codex-project-file-browser-search",
 			attr: {
 				type: "search",
@@ -163,7 +181,7 @@ export class ProjectFileBrowserView extends ItemView {
 			this.renderResults();
 		});
 
-		this.resultsEl = this.contentEl.createDiv({ cls: "claude-codex-project-file-browser-summary" });
+		this.resultsEl = filePane.createDiv({ cls: "claude-codex-project-file-browser-summary" });
 		if (this.listing.truncated) {
 			this.resultsEl.createSpan({
 				cls: "claude-codex-project-file-browser-warning",
@@ -171,8 +189,60 @@ export class ProjectFileBrowserView extends ItemView {
 			});
 		}
 		this.countEl = this.resultsEl.createSpan({ cls: "claude-codex-project-file-browser-count" });
-		this.fileListEl = this.contentEl.createDiv({ cls: "claude-codex-project-file-browser-file-list" });
+		this.fileListEl = filePane.createDiv({ cls: "claude-codex-project-file-browser-file-list" });
+
+		const previewPane = content.createDiv({ cls: "claude-codex-project-file-browser-preview-pane" });
+		this.renderPreview(previewPane);
 		this.renderResults();
+	}
+
+	private renderPreview(previewPane: HTMLElement): void {
+		const header = previewPane.createDiv({ cls: "claude-codex-project-file-browser-preview-header" });
+		const heading = header.createDiv({ cls: "claude-codex-project-file-browser-preview-heading" });
+		heading.createEl("h3", { text: "Preview" });
+		heading.createEl("code", { text: this.selectedPath ?? "No file selected" });
+
+		const actions = header.createDiv({ cls: "claude-codex-project-file-browser-preview-actions" });
+		const reloadButton = actions.createEl("button", { text: "Reload preview" });
+		reloadButton.disabled = !this.selectedPath || this.previewLoading;
+		reloadButton.addEventListener("click", () => this.reloadPreview());
+
+		const openEditorButton = actions.createEl("button", { cls: "mod-cta", text: "Open editor" });
+		openEditorButton.disabled = !this.preview || this.previewLoading;
+		openEditorButton.addEventListener("click", () => this.openPreviewInEditor());
+
+		if (this.previewLoading) {
+			previewPane.createDiv({
+				cls: "claude-codex-project-file-browser-message",
+				text: "Reading local file for preview...",
+			});
+			return;
+		}
+
+		if (this.previewError) {
+			previewPane.createDiv({
+				cls: "claude-codex-project-file-browser-error",
+				text: this.previewError,
+			});
+			return;
+		}
+
+		if (!this.preview) {
+			previewPane.createDiv({
+				cls: "claude-codex-project-file-browser-message",
+				text: "Select a file to preview it here. Preview is read-only; use Open editor only when you want to edit.",
+			});
+			return;
+		}
+
+		const status = previewPane.createDiv({ cls: "claude-codex-project-file-browser-preview-status" });
+		status.createSpan({ text: "Read-only preview" });
+		status.createSpan({ text: "UTF-8 text files up to 1 MB" });
+
+		const previewText = previewPane.createEl("pre", { cls: "claude-codex-project-file-browser-preview-text" });
+		previewText.setAttribute("tabindex", "0");
+		previewText.setAttribute("aria-label", `Read-only preview of ${this.preview.relativePath}`);
+		previewText.setText(this.preview.text);
 	}
 
 	private renderResults(): void {
@@ -201,12 +271,16 @@ export class ProjectFileBrowserView extends ItemView {
 				cls: "claude-codex-project-file-browser-file-button",
 				text: file.path,
 			});
+			if (file.path === this.selectedPath) {
+				button.addClass("is-selected");
+				button.setAttribute("aria-current", "true");
+			}
 			button.setAttribute(
 				"title",
-				`Open in External File Editor (${formatFileSize(file.size)}; UTF-8 text files up to 1 MB)`
+				`Preview (${formatFileSize(file.size)}; UTF-8 text files up to 1 MB)`
 			);
 			button.addEventListener("click", () => {
-				void this.plugin.openExternalFileEditor(this.state.projectRoot, file.path);
+				void this.previewFile(file.path);
 			});
 		}
 
@@ -216,6 +290,59 @@ export class ProjectFileBrowserView extends ItemView {
 				text: `Showing the first ${MAX_RENDERED_FILE_COUNT.toLocaleString()} matches. Refine the filter to find the rest.`,
 			});
 		}
+	}
+
+	private async previewFile(relativePath: string): Promise<void> {
+		const projectRoot = this.state.projectRoot;
+		if (!projectRoot) {
+			return;
+		}
+
+		const requestId = ++this.previewRequestId;
+		this.selectedPath = relativePath;
+		this.preview = null;
+		this.previewError = null;
+		this.previewLoading = true;
+		this.render();
+
+		try {
+			const preview = await this.plugin.externalFileService.readTextFile(projectRoot, relativePath);
+			if (this.isCurrentPreviewRequest(requestId, projectRoot, relativePath)) {
+				this.preview = preview;
+			}
+		} catch (error) {
+			if (this.isCurrentPreviewRequest(requestId, projectRoot, relativePath)) {
+				this.previewError = error instanceof Error ? error.message : "Could not preview the local file.";
+			}
+		} finally {
+			if (!this.isCurrentPreviewRequest(requestId, projectRoot, relativePath)) {
+				return;
+			}
+			this.previewLoading = false;
+			if (this.opened) {
+				this.render();
+			}
+		}
+	}
+
+	private isCurrentPreviewRequest(requestId: number, projectRoot: string, relativePath: string): boolean {
+		return requestId === this.previewRequestId
+			&& projectRoot === this.state.projectRoot
+			&& relativePath === this.selectedPath;
+	}
+
+	private reloadPreview(): void {
+		if (this.selectedPath) {
+			void this.previewFile(this.selectedPath);
+		}
+	}
+
+	private openPreviewInEditor(): void {
+		if (!this.preview) {
+			return;
+		}
+
+		void this.plugin.openExternalFileEditor(this.preview.projectRoot, this.preview.relativePath);
 	}
 }
 
